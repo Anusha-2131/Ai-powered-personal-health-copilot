@@ -1,0 +1,29 @@
+CREATE TABLE IF NOT EXISTS records (
+    id TEXT PRIMARY KEY,
+    patient_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    document_type TEXT NOT NULL,
+    document_date TEXT NOT NULL,
+    facility TEXT,
+    provider TEXT,
+    original_file_name TEXT,
+    file_url TEXT,
+    mime_type TEXT,
+    confidence_score INTEGER DEFAULT 90,
+    provenance TEXT DEFAULT 'extracted',
+    status TEXT DEFAULT 'reviewed',
+    raw_text TEXT,
+    observations TEXT,       -- JSON array: [{ testName, value, unit, referenceRange, interpretation }]
+    medications TEXT,        -- JSON array: [{ name, strength, frequency, instructions, isActive }]
+    conditions TEXT,         -- JSON array: [{ name, status }]
+    allergies TEXT,          -- JSON array
+    encounter TEXT,          -- JSON object
+    summary TEXT,            -- JSON object: { plainLanguageSummary, hindiSummary, keyTakeaways, questionsForDoctor }
+    created_at TEXT,
+    updated_at TEXT,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_records_patient ON records(patient_id);
+CREATE INDEX IF NOT EXISTS idx_records_date ON records(document_date);
+CREATE INDEX IF NOT EXISTS idx_records_type ON records(document_type);
