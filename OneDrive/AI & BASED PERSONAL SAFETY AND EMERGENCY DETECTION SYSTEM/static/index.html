@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101d31">
+  <title>Personal Safety &amp; Emergency Detection</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#home">
+        <span class="brand-mark" aria-hidden="true">✦</span>
+        <span>AI Personal Safety<small>&amp; Emergency Detection</small></span>
+      </a>
+      <nav class="nav-list" aria-label="Main navigation">
+        <a class="nav-link active" href="#home"><span>⌂</span> Home</a>
+        <a class="nav-link" href="#location"><span>⌖</span> Live location</a>
+        <a class="nav-link" href="#contacts"><span>♧</span> Contacts</a>
+        <a class="nav-link" href="#sms-alert"><span>▤</span> SMS alerts</a>
+        <a class="nav-link" href="#emergency-call"><span>☎</span> Emergency call</a>
+        <a class="nav-link" href="#incidents"><span>▣</span> Incident logs</a>
+        <a class="nav-link" href="#settings"><span>⚙</span> Safety notes</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <span class="shield-large" aria-hidden="true">⬡</span>
+        <strong>Your safety<br>comes first</strong>
+        <small>This demo does not dispatch help.</small>
+      </div>
+    </aside>
+
+    <main id="home" class="workspace">
+      <header class="topbar">
+        <div class="page-heading">
+          <span class="eyebrow">PERSONAL SAFETY DASHBOARD</span>
+          <h1>Welcome back</h1>
+        </div>
+        <div class="header-cards">
+          <div class="header-card status-card">
+            <span class="status-shield" aria-hidden="true">✓</span>
+            <span><small>System status</small><strong id="system-status">READY</strong><em id="system-substatus">No active alert</em></span>
+          </div>
+          <div class="header-card clock-card">
+            <span class="header-symbol" aria-hidden="true">◷</span>
+            <span><small>Date &amp; time</small><strong id="clock-date">--</strong><em id="clock-time">--</em></span>
+          </div>
+          <div class="header-card user-card">
+            <span class="user-avatar" aria-hidden="true">U</span>
+            <span><small>User</small><strong>Your profile</strong><em><i class="online-dot"></i> Online</em></span>
+          </div>
+        </div>
+      </header>
+
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+      <section class="action-grid" aria-label="Emergency actions">
+        <button id="sos-button" class="action-tile action-sos" type="button">
+          <span class="tile-icon" aria-hidden="true">!</span><strong>EMERGENCY SOS</strong><small>Confirm and record alert</small>
+        </button>
+        <button id="call-action" class="action-tile action-call" type="button">
+          <span class="tile-icon" aria-hidden="true">☎</span><strong>EMERGENCY CALL</strong><small>Open your phone app</small>
+        </button>
+        <button id="voice-start" class="action-tile action-voice" type="button">
+          <span class="tile-icon" aria-hidden="true">♩</span><strong>VOICE DETECTION</strong><small>Start listening by choice</small>
+        </button>
+        <button id="location-action" class="action-tile action-location" type="button">
+          <span class="tile-icon" aria-hidden="true">⌖</span><strong>GET MY LOCATION</strong><small>Only with your permission</small>
+        </button>
+      </section>
+
+      <section class="dashboard-grid">
+        <div class="primary-column">
+          <div class="top-panels">
+            <section id="location" class="panel location-panel">
+              <div class="panel-heading">
+                <div><span class="panel-icon green-icon" aria-hidden="true">⌖</span><div><h2>Live location</h2><p>Your location is private until you choose to share it.</p></div></div>
+                <span id="location-badge" class="badge badge-muted">Not shared</span>
+              </div>
+              <div class="location-details">
+                <div class="coordinates">
+                  <span>LATITUDE <strong id="latitude-value">--</strong></span>
+                  <span>LONGITUDE <strong id="longitude-value">--</strong></span>
+                  <span>ADDRESS <strong id="address-value">Location not requested</strong></span>
+                  <a id="map-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Open in map ↗</a>
+                </div>
+                <div class="map-frame">
+                  <div class="map-pattern" aria-hidden="true"></div>
+                  <span class="map-label">Your map preview</span>
+                  <span id="map-pin" class="map-pin" aria-hidden="true">●</span>
+                  <span class="map-help">Select “Get my location” to update</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel voice-panel">
+              <div class="panel-heading">
+                <div><span class="panel-icon blue-icon" aria-hidden="true">♩</span><div><h2>Voice check</h2><p>Microphone is off until you start it.</p></div></div>
+                <span id="voice-state" class="badge badge-muted">OFF</span>
+              </div>
+              <div class="voice-content">
+                <div id="voice-wave" class="voice-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                <p id="voice-transcript" class="transcript">Press “Start listening” and speak a short phrase.</p>
+                <div class="risk-summary"><span>DEMO RISK ESTIMATE</span><strong id="risk-score">--</strong></div>
+                <p id="voice-disclaimer" class="voice-disclaimer">Recognition depends on browser privacy settings. This app does not save audio.</p>
+                <button id="voice-alert-button" class="button button-danger button-full" type="button" hidden>Create SOS alert from this phrase</button>
+              </div>
+            </section>
+          </div>
+
+          <div class="lower-panels">
+            <section id="contacts" class="panel contacts-panel">
+              <div class="panel-heading">
+                <div><span class="panel-icon blue-icon" aria-hidden="true">♧</span><div><h2>Trusted contacts</h2><p id="contact-count">People you may want to reach</p></div></div>
+                <button id="toggle-contact-form" class="icon-button" type="button" aria-label="Add a trusted contact">＋</button>
+              </div>
+              <form id="contact-form" class="contact-form" hidden>
+                <label for="contact-name">Name</label><input id="contact-name" name="name" maxlength="80" required placeholder="Contact name">
+                <label for="contact-phone">Phone</label><input id="contact-phone" name="phone" type="tel" maxlength="25" required placeholder="+1 555 0100">
+                <label for="contact-relationship">Relationship</label><input id="contact-relationship" name="relationship" maxlength="60" placeholder="Friend, family…">
+                <button class="button button-primary button-full" type="submit">Save contact</button>
+              </form>
+              <div id="contact-list" class="contact-list"><p class="empty-state">No contacts added yet.</p></div>
+              <p class="panel-footnote">Contacts are stored locally. Calls and messages require your confirmation.</p>
+            </section>
+
+            <section id="incidents" class="panel incidents-panel">
+              <div class="panel-heading">
+                <div><span class="panel-icon amber-icon" aria-hidden="true">▣</span><div><h2>Incident log</h2><p>Recent check-ins and SOS events</p></div></div>
+                <span id="activity-count" class="badge badge-muted">0 events</span>
+              </div>
+              <div id="activity-list" class="activity-list"><p class="empty-state">No incidents recorded.</p></div>
+            </section>
+          </div>
+
+          <section id="settings" class="panel checkin-panel">
+            <div class="checkin-copy"><span class="panel-icon purple-icon" aria-hidden="true">♡</span><div><h2>Safety check-in</h2><p>Save how you’re feeling. The estimate is a simple demo rule, not an AI diagnosis.</p></div></div>
+            <form id="checkin-form" class="checkin-form">
+              <select id="concern" name="concern" aria-label="Select how you feel">
+                <option value="low">I feel safe</option><option value="medium">A little uneasy</option><option value="high">I feel at risk</option>
+              </select>
+              <input id="checkin-message" name="message" maxlength="1000" placeholder="Optional note">
+              <label class="location-option"><input id="include-location" type="checkbox"> Include location</label>
+              <button class="button button-primary" type="submit">Save check-in</button>
+            </form>
+          </section>
+        </div>
+
+        <aside class="right-column">
+          <section id="sms-alert" class="panel sms-panel">
+            <div class="panel-heading">
+              <div><span class="panel-icon blue-icon" aria-hidden="true">▤</span><div><h2>Send an SMS</h2><p>Review and send from your messaging app.</p></div></div>
+            </div>
+            <form id="sms-form">
+              <label for="sms-contact">To</label><select id="sms-contact" required><option value="">Choose a trusted contact</option></select>
+              <label for="sms-message">Message</label><textarea id="sms-message" rows="4" maxlength="500">I may need help. Please contact me.</textarea>
+              <label class="location-option"><input id="sms-location" type="checkbox"> Add my location link</label>
+              <button class="button button-primary button-full" type="submit"><span aria-hidden="true">➤</span> Open messaging app</button>
+              <p class="small-note">This app does not send messages automatically.</p>
+            </form>
+          </section>
+
+          <section id="emergency-call" class="panel call-panel">
+            <div class="panel-heading">
+              <div><span class="panel-icon red-icon" aria-hidden="true">☎</span><div><h2>Emergency call</h2><p>Enter your local emergency number.</p></div></div>
+            </div>
+            <label for="emergency-number">Emergency number</label>
+            <input id="emergency-number" type="tel" inputmode="tel" placeholder="e.g. 112">
+            <a id="call-link" class="button button-green button-full disabled-link" href="#" aria-disabled="true">☎ &nbsp; Call now</a>
+            <p class="small-note">Only use this for a real emergency. Your device may ask which calling app to use.</p>
+          </section>
+
+          <section class="panel quick-panel">
+            <div class="panel-heading"><div><span class="panel-icon amber-icon" aria-hidden="true">ϟ</span><div><h2>Quick actions</h2><p>Shortcuts for your safety</p></div></div></div>
+            <button id="quick-sos" class="quick-action quick-orange" type="button">⚑ &nbsp; Start SOS alert</button>
+            <a class="quick-action quick-purple" href="#incidents">▣ &nbsp; View incident log</a>
+            <button id="test-alert" class="quick-action quick-blue" type="button">✓ &nbsp; Test alert flow</button>
+            <p class="small-note">Test mode only saves a clearly labelled check-in.</p>
+          </section>
+        </aside>
+      </section>
+
+      <footer><span>Personal Safety Demo</span><span>Not monitored · Not a substitute for emergency services</span></footer>
+    </main>
+  </div>
+
+  <dialog id="sos-dialog" class="sos-dialog" aria-labelledby="dialog-title">
+    <form id="sos-form">
+      <span class="dialog-mark" aria-hidden="true">!</span>
+      <p class="eyebrow">PLEASE CONFIRM</p>
+      <h2 id="dialog-title">Create an SOS alert?</h2>
+      <p>This records an event in this app only. It will not notify contacts or emergency services. If you are in immediate danger, call your local emergency number.</p>
+      <label for="sos-message">Optional note</label>
+      <textarea id="sos-message" maxlength="1000" rows="2" placeholder="Share a brief detail"></textarea>
+      <label class="location-option"><input id="sos-location" type="checkbox"> Include my current location</label>
+      <div class="dialog-actions"><button class="button button-quiet" id="cancel-sos" type="button">Cancel</button><button class="button button-danger" type="submit">Confirm SOS</button></div>
+    </form>
+  </dialog>
+</body>
+</html>
