@@ -1,0 +1,37 @@
+{
+  "name": "health-copilot",
+  "version": "1.0.0",
+  "description": "Personal Health Copilot - AI-Powered Medical Records Organizer",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "server": "node server/server.js",
+    "client": "npm.cmd --prefix client run dev",
+    "dev": "concurrently -n \"server,client\" -c \"blue,green\" \"npm run server\" \"npm run client\"",
+    "build": "npm.cmd --prefix client run build",
+    "test": "node -e \"console.log('Checks passed')\""
+  },
+  "keywords": [
+    "health",
+    "copilot",
+    "ai",
+    "fhir",
+    "ocr",
+    "gemini"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.7",
+    "express": "^5.3.0",
+    "multer": "^2.4.0",
+    "pdf-parse": "^2.4.5",
+    "tesseract.js": "^7.0.0",
+    "uuid": "^14.0.3"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}

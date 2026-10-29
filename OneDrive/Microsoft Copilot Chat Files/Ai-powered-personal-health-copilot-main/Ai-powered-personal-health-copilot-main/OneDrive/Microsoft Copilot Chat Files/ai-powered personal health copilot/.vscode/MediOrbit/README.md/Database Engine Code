@@ -1,0 +1,372 @@
+import sqlite3
+import json
+import os
+import uuid
+from datetime import datetime
+
+DB_FILE = os.path.join(os.path.dirname(__file__), 'health_copilot.db')
+LEGACY_JSON = os.path.join(os.path.dirname(__file__), '..', 'server', 'data', 'health_db.json')
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Patients Table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS patients (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        dob TEXT,
+        age INTEGER,
+        gender TEXT,
+        blood_group TEXT,
+        phone TEXT,
+        email TEXT,
+        preferred_language TEXT DEFAULT 'en',
+        emergency_contact TEXT,
+        known_conditions TEXT,
+        allergies TEXT,
+        created_at TEXT,
+        updated_at TEXT
+    )
+    ''')
+
+    # Records Table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS records (
+        id TEXT PRIMARY KEY,
+        patient_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        document_type TEXT NOT NULL,
+        document_date TEXT NOT NULL,
+        facility TEXT,
+        provider TEXT,
+        original_file_name TEXT,
+        file_url TEXT,
+        mime_type TEXT,
+        confidence_score INTEGER DEFAULT 90,
+        provenance TEXT DEFAULT 'extracted',
+        status TEXT DEFAULT 'reviewed',
+        raw_text TEXT,
+        observations TEXT,
+        medications TEXT,
+        conditions TEXT,
+        allergies TEXT,
+        encounter TEXT,
+        summary TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+    )
+    ''')
+
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_records_patient ON records(patient_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_records_date ON records(document_date)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_records_type ON records(document_type)')
+
+    conn.commit()
+
+    # Auto seed initial demo patients & records if empty
+    cursor.execute('SELECT COUNT(*) FROM patients')
+    if cursor.fetchone()[0] == 0:
+        seed_from_legacy_or_defaults(conn)
+
+    conn.close()
+
+def seed_from_legacy_or_defaults(conn):
+    cursor = conn.cursor()
+    if os.path.exists(LEGACY_JSON):
+        try:
+            with open(LEGACY_JSON, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                for p in data.get('patients', []):
+                    cursor.execute('''
+                    INSERT OR REPLACE INTO patients 
+                    (id, name, dob, age, gender, blood_group, phone, email, preferred_language, emergency_contact, known_conditions, allergies, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        p.get('id'), p.get('name'), p.get('dob'), p.get('age'), p.get('gender'),
+                        p.get('bloodGroup'), p.get('phone'), p.get('email'), p.get('preferredLanguage', 'en'),
+                        json.dumps(p.get('emergencyContact', {})),
+                        json.dumps(p.get('knownConditions', [])),
+                        json.dumps(p.get('allergies', [])),
+                        p.get('createdAt') or datetime.utcnow().isoformat() + 'Z'
+                    ))
+
+                for r in data.get('records', []):
+                    cursor.execute('''
+                    INSERT OR REPLACE INTO records
+                    (id, patient_id, title, document_type, document_date, facility, provider, original_file_name, file_url, mime_type, confidence_score, provenance, status, raw_text, observations, medications, conditions, allergies, encounter, summary, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        r.get('id'), r.get('patientId'), r.get('title'), r.get('documentType'),
+                        r.get('documentDate'), r.get('facility'), r.get('provider'),
+                        r.get('originalFileName'), r.get('fileUrl'), r.get('mimeType'),
+                        r.get('confidenceScore', 90), r.get('provenance', 'extracted'),
+                        r.get('status', 'reviewed'), r.get('rawText', ''),
+                        json.dumps(r.get('observations', [])),
+                        json.dumps(r.get('medications', [])),
+                        json.dumps(r.get('conditions', [])),
+                        json.dumps(r.get('allergies', [])),
+                        json.dumps(r.get('encounter', {})),
+                        json.dumps(r.get('summary', {})),
+                        r.get('createdAt') or datetime.utcnow().isoformat() + 'Z',
+                        r.get('updatedAt') or datetime.utcnow().isoformat() + 'Z'
+                    ))
+                conn.commit()
+                print("[SQLite] Seeded clinical records successfully.")
+                return
+        except Exception as e:
+            print(f"[SQLite] Seed error: {e}")
+
+def patient_row_to_dict(row):
+    if not row: return None
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "dob": row["dob"],
+        "age": row["age"],
+        "gender": row["gender"],
+        "bloodGroup": row["blood_group"],
+        "phone": row["phone"],
+        "email": row["email"],
+        "preferredLanguage": row["preferred_language"],
+        "emergencyContact": json.loads(row["emergency_contact"] or "{}"),
+        "knownConditions": json.loads(row["known_conditions"] or "[]"),
+        "allergies": json.loads(row["allergies"] or "[]"),
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"]
+    }
+
+def record_row_to_dict(row):
+    if not row: return None
+    return {
+        "id": row["id"],
+        "patientId": row["patient_id"],
+        "title": row["title"],
+        "documentType": row["document_type"],
+        "documentDate": row["document_date"],
+        "facility": row["facility"],
+        "provider": row["provider"],
+        "originalFileName": row["original_file_name"],
+        "fileUrl": row["file_url"],
+        "mimeType": row["mime_type"],
+        "confidenceScore": row["confidence_score"],
+        "provenance": row["provenance"],
+        "status": row["status"],
+        "rawText": row["raw_text"],
+        "observations": json.loads(row["observations"] or "[]"),
+        "medications": json.loads(row["medications"] or "[]"),
+        "conditions": json.loads(row["conditions"] or "[]"),
+        "allergies": json.loads(row["allergies"] or "[]"),
+        "encounter": json.loads(row["encounter"] or "{}"),
+        "summary": json.loads(row["summary"] or "{}"),
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"]
+    }
+
+class SQLiteDatabase:
+    @staticmethod
+    def get_patients():
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM patients ORDER BY name ASC')
+        rows = cursor.fetchall()
+        conn.close()
+        return [patient_row_to_dict(r) for r in rows]
+
+    @staticmethod
+    def get_patient_by_id(patient_id):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM patients WHERE id = ?', (patient_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return patient_row_to_dict(row)
+
+    @staticmethod
+    def create_patient(payload):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        new_id = payload.get("id") or f"patient-{uuid.uuid4().hex[:8]}"
+        now = datetime.utcnow().isoformat() + "Z"
+        cursor.execute('''
+        INSERT INTO patients 
+        (id, name, dob, age, gender, blood_group, phone, email, preferred_language, emergency_contact, known_conditions, allergies, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            new_id, payload.get("name", "Anonymous User"), payload.get("dob", ""),
+            payload.get("age"), payload.get("gender", "Not specified"),
+            payload.get("bloodGroup", ""), payload.get("phone", ""), payload.get("email", ""),
+            payload.get("preferredLanguage", "en"),
+            json.dumps(payload.get("emergencyContact", {})),
+            json.dumps(payload.get("knownConditions", [])),
+            json.dumps(payload.get("allergies", [])),
+            now
+        ))
+        conn.commit()
+        conn.close()
+        return SQLiteDatabase.get_patient_by_id(new_id)
+
+    @staticmethod
+    def update_patient(patient_id, updates):
+        current = SQLiteDatabase.get_patient_by_id(patient_id)
+        if not current: return None
+        current.update(updates)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+        UPDATE patients SET
+            name = ?, dob = ?, age = ?, gender = ?, blood_group = ?, phone = ?, email = ?,
+            preferred_language = ?, emergency_contact = ?, known_conditions = ?, allergies = ?, updated_at = ?
+        WHERE id = ?
+        ''', (
+            current["name"], current["dob"], current["age"], current["gender"], current["bloodGroup"],
+            current["phone"], current["email"], current["preferredLanguage"],
+            json.dumps(current["emergencyContact"]), json.dumps(current["knownConditions"]),
+            json.dumps(current["allergies"]), datetime.utcnow().isoformat() + "Z", patient_id
+        ))
+        conn.commit()
+        conn.close()
+        return SQLiteDatabase.get_patient_by_id(patient_id)
+
+    @staticmethod
+    def delete_patient(patient_id):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM records WHERE patient_id = ?', (patient_id,))
+        cursor.execute('DELETE FROM patients WHERE id = ?', (patient_id,))
+        conn.commit()
+        conn.close()
+        return True
+
+    @staticmethod
+    def get_records(patient_id, doc_type=None, q=None, medicine=None, test=None, start_date=None, end_date=None):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        query = 'SELECT * FROM records WHERE patient_id = ?'
+        params = [patient_id]
+
+        if doc_type and doc_type != 'all':
+            query += ' AND document_type = ?'
+            params.append(doc_type)
+
+        if start_date:
+            query += ' AND document_date >= ?'
+            params.append(start_date)
+
+        if end_date:
+            query += ' AND document_date <= ?'
+            params.append(end_date)
+
+        query += ' ORDER BY document_date DESC, created_at DESC'
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        conn.close()
+
+        records = [record_row_to_dict(r) for r in rows]
+
+        if q:
+            q_lower = q.lower().strip()
+            def matches(r):
+                base = any(q_lower in str(r.get(f, '')).lower() for f in ['title', 'facility', 'provider', 'rawText'])
+                meds = any(q_lower in str(m.get('name', '')).lower() for m in r.get('medications', []))
+                tests = any(q_lower in str(o.get('testName', '')).lower() for o in r.get('observations', []))
+                conds = any(q_lower in str(c.get('name', '')).lower() for c in r.get('conditions', []))
+                return base or meds or tests or conds
+            records = [r for r in records if matches(r)]
+
+        if test:
+            t_lower = test.lower().strip()
+            records = [r for r in records if any(t_lower in str(o.get('testName', '')).lower() for o in r.get('observations', []))]
+
+        if medicine:
+            m_lower = medicine.lower().strip()
+            records = [r for r in records if any(m_lower in str(med.get('name', '')).lower() for med in r.get('medications', []))]
+
+        return records
+
+    @staticmethod
+    def get_record_by_id(record_id):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM records WHERE id = ?', (record_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return record_row_to_dict(row)
+
+    @staticmethod
+    def create_record(payload):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        new_id = payload.get("id") or f"rec-{uuid.uuid4().hex[:12]}"
+        now = datetime.utcnow().isoformat() + "Z"
+
+        cursor.execute('''
+        INSERT INTO records
+        (id, patient_id, title, document_type, document_date, facility, provider, original_file_name, file_url, mime_type, confidence_score, provenance, status, raw_text, observations, medications, conditions, allergies, encounter, summary, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            new_id, payload.get("patientId"), payload.get("title", "Medical Record"),
+            payload.get("documentType", "other"), payload.get("documentDate", datetime.utcnow().strftime("%Y-%m-%d")),
+            payload.get("facility", "Unspecified Clinic"), payload.get("provider", "Unspecified Physician"),
+            payload.get("originalFileName"), payload.get("fileUrl"), payload.get("mimeType", "text/plain"),
+            payload.get("confidenceScore", 90), payload.get("provenance", "extracted"),
+            payload.get("status", "reviewed"), payload.get("rawText", ""),
+            json.dumps(payload.get("observations", [])), json.dumps(payload.get("medications", [])),
+            json.dumps(payload.get("conditions", [])), json.dumps(payload.get("allergies", [])),
+            json.dumps(payload.get("encounter", {})), json.dumps(payload.get("summary", {})),
+            now, now
+        ))
+        conn.commit()
+        conn.close()
+        return SQLiteDatabase.get_record_by_id(new_id)
+
+    @staticmethod
+    def update_record(record_id, updates):
+        current = SQLiteDatabase.get_record_by_id(record_id)
+        if not current: return None
+        current.update(updates)
+        current["provenance"] = "user_edited"
+        now = datetime.utcnow().isoformat() + "Z"
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+        UPDATE records SET
+            title = ?, document_type = ?, document_date = ?, facility = ?, provider = ?,
+            confidence_score = ?, provenance = ?, status = ?, raw_text = ?,
+            observations = ?, medications = ?, conditions = ?, allergies = ?,
+            encounter = ?, summary = ?, updated_at = ?
+        WHERE id = ?
+        ''', (
+            current["title"], current["documentType"], current["documentDate"],
+            current["facility"], current["provider"], current["confidenceScore"],
+            "user_edited", current["status"], current["rawText"],
+            json.dumps(current["observations"]), json.dumps(current["medications"]),
+            json.dumps(current["conditions"]), json.dumps(current["allergies"]),
+            json.dumps(current["encounter"]), json.dumps(current["summary"]),
+            now, record_id
+        ))
+        conn.commit()
+        conn.close()
+        return SQLiteDatabase.get_record_by_id(record_id)
+
+    @staticmethod
+    def delete_record(record_id):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM records WHERE id = ?', (record_id,))
+        conn.commit()
+        conn.close()
+        return True
+
+# Initialize database schema immediately when module is imported
+init_db()
